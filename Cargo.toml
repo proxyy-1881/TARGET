@@ -1,0 +1,23 @@
+[package]
+name = "target"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+thiserror = "1.0"
+tokio = { version = "1.35", features = ["full"] }
+rusqlite = { version = "0.30", features = ["bundled"] }
+blake3 = "1.5"
+x25519-dalek = "2.0"
+rand = "0.8"
+base64 = "0.21"
+hex = "0.4"
+dirs = "5.0"
+sysinfo = "0.30"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+aes-gcm = "0.10"
+argon2 = "0.5"

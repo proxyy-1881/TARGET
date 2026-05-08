@@ -1,0 +1,61 @@
+use anyhow::Result;
+use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
+use aes_gcm::aead::{Aead, AeadCore};
+use rand::RngCore;
+use x25519_dalek::{EphemeralSecret, PublicKey, StaticSecret};
+use blake3::Hasher;
+use argon2::{Argon2, PasswordHasher, PasswordVerifier};
+use argon2::password_hash::{rand_core::OsRng, SaltString};
+
+pub struct TargetCrypto;
+
+impl TargetCrypto {
+    pub fn derive_key_from_password(password: &str, salt: &[u8]) -> Result<[u8; 32]> {
+        let argon2 = Argon2::default();
+        let mut output = [0u8; 32];
+        argon2.hash_password_into(password.as_bytes(), salt, &mut output)?;
+        Ok(output)
+    }
+
+    pub fn encrypt_aes256gcm(key: &[u8; 32], data: &[u8]) -> Result<Vec<u8>> {
+        let cipher = Aes256Gcm::new_from_slice(key)?;
+        let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+        let ciphertext = cipher.encrypt(&nonce, data)?;
+        let mut result = nonce.to_vec();
+        result.extend(ciphertext);
+        Ok(result)
+    }
+
+    pub fn decrypt_aes256gcm(key: &[u8; 32], encrypted: &[u8]) -> Result<Vec<u8>> {
+        if encrypted.len() < 12 {
+            anyhow::bail!("encrypted data too short");
+        }
+        let cipher = Aes256Gcm::new_from_slice(key)?;
+        let nonce = Nonce::from_slice(&encrypted[0..12]);
+        let ciphertext = &encrypted[12..];
+        let plaintext = cipher.decrypt(nonce, ciphertext)?;
+        Ok(plaintext)
+    }
+
+    pub fn generate_keypair() -> ([u8; 32], [u8; 32]) {
+        let secret = StaticSecret::random_from_rng(OsRng);
+        let public = PublicKey::from(&secret);
+        (secret.to_bytes(), public.to_bytes())
+    }
+
+    pub fn x25519_shared_secret(private_key: &[u8; 32], public_key: &[u8; 32]) -> [u8; 32] {
+        let secret = StaticSecret::from(*private_key);
+        let public = PublicKey::from(*public_key);
+        *secret.diffie_hellman(&public).as_bytes()
+    }
+
+    pub fn hash_blake3(data: &[u8]) -> [u8; 32] {
+        *Hasher::new().update(data).finalize().as_bytes()
+    }
+
+    pub fn generate_random_bytes(len: usize) -> Vec<u8> {
+        let mut bytes = vec![0u8; len];
+        OsRng.fill_bytes(&mut bytes);
+        bytes
+    }
+}
